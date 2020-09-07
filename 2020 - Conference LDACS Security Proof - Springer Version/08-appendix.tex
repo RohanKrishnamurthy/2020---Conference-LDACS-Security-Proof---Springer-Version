@@ -1,0 +1,241 @@
+\section{Tamarin Source Code for the verification of LDACS MAKE Security}
+\label{TamarinCode}
+
+\subsection{Overall LDACS MAKE Structure in Tamarin}
+
+We state the name of the theory that shall be proven ("ldacs\_make"),  which built-in functions shall be used, and which restrictions apply.
+
+\begin{lstlisting}
+
+theory ldacs_make
+begin
+
+builtins: diffie-hellman
+, symmetric-encryption, signing
+
+// rules which contain the 
+// OnlyOnceV(x)-event will be executed 
+// only once per x restriction OnlyOnceV:
+  "<@\textcolor{blue}{All}@> #i #j x. OnlyOnceV(x)@#i 
+  & OnlyOnceV(x)@#j ==> #i = #j"
+  
+// LDACS MAKE Protocol
+
+// <INSERT RULES HERE>
+
+// <INSERT LEMMATE HERE>
+
+end
+
+\end{lstlisting}
+
+\subsection{Registering Public Keys by Identity}
+
+GSC and AS require public and private keys. These keys are registered with an ID in the PKI.
+
+\begin{lstlisting}
+// Public key infrastructure (PKI):
+// Anyone can register at any time 
+// a public key together with its ID
+// But: only once per ID
+<@\textcolor{blue}{rule}@> Register_pk:
+  [ Fr(~ltkX) ]
+  --[ OnlyOnceV($X) ]->
+  [ !Ltk($X, ~ltkX)
+  , !Pk($X, pk(~ltkX))
+  , Out(pk(~ltkX)) 
+  ] 
+  
+\end{lstlisting}
+
+\subsection{Attacker Model}
+\label{attackermodel}
+Tamarin assumes an adversary in the Dolev-Yao threat model. We model the possibility that a long term key (ltk) can be compromised. We need that to prove the Lemma 3: "Perfect Forward Secrecy".
+\begin{lstlisting}
+// Compromising an agent's long-term key
+<@\textcolor{blue}{rule}@> Reveal_ltk:
+  [ !Ltk($X, ltkX) ] 
+  --[ Reveal($X) ]-> 
+  [ Out(ltkX) ]
+\end{lstlisting}
+
+\subsection{GSC side of the MAKE Protocol in Tamarin}
+
+We model the different transitions for the LDACS MAKE protocol of the GSC.
+
+\begin{lstlisting}
+<@\textcolor{blue}{rule}@> GSC_0:
+    [ 
+        Fr(~id)
+        , !Ltk($GSC, ltkGSC)
+    ]
+    --[ CreateGSC($GSC, ~id) ]->
+    [ 
+        S_GSC_0($GSC, ~id, ltkGSC)
+        , Out(<'<@\textcolor{red}{Broadcast}@>', $GSC>)
+    ]
+
+<@\textcolor{blue}{rule}@> GSC_1:
+    <@\textcolor{darkgreen}{let}@> tgsc = '<@\textcolor{red}{g}@>'^~x 
+    <@\textcolor{darkgreen}{in}@> 
+    [
+        S_GSC_0(GSC, id, ltkGSC)
+        , In(<'<@\textcolor{red}{CellEntryRequest}@>', AS>)
+        , Fr(~x)
+    ]
+    --[ Running(GSC, AS, id, tgsc) ]->
+    [
+        Out(<'<@\textcolor{red}{ServerHelloKeyExchange}@>', GSC, tgsc>) 
+        , S_GSC_1(GSC, id, ltkGSC, AS, ~x, tgsc)
+    ]
+
+<@\textcolor{blue}{rule}@> GSC_2:
+    <@\textcolor{darkgreen}{let}@> PMS = tas^x
+    <@\textcolor{darkgreen}{in}@> 
+    [   S_GSC_1(GSC, id, ltkGSC, AS, x, tgsc)
+        , In(<'<@\textcolor{red}{ClientHelloKeyExchange}@>', tas, 
+            sign{tas, tgsc, AS, GSC}ltkAS>)
+        , Fr(~ngsc)
+        , !Pk(AS, pk(ltkAS)) 
+    ]     
+    --[ Knows(GSC, id, PMS, AS) ]->
+    [ 
+        S_GSC_2(GSC, id, ltkGSC, AS, PMS, ~ngsc, tgsc, tas)
+        ,Out(<'<@\textcolor{red}{ServerKeyExchangeFinished}@>', ~ngsc, 
+            sign{~ngsc, tgsc, tas, GSC, AS}ltkGSC>)
+    ]
+
+<@\textcolor{blue}{rule}@> GSC_3:
+    [
+        S_GSC_2(GSC, id, ltkGSC, AS, PMS, ngsci, tgsc, tas)
+        , In(<'<@\textcolor{red}{ClientKeyExchangeFinished}@>', senc{ngsc}PMS>) 
+    ]
+    --[ 
+        Commit(GSC, AS, id, <tgsc, tas>)
+        , Secret(PMS), Honest(GSC), Honest(AS) 
+    ]->
+    [ ]
+
+\end{lstlisting}
+
+\subsection{AS side of the MAKE Protocol in Tamarin}
+
+We model the transitions for the LDACS MAKE protocol of the AS side.
+
+\begin{lstlisting}
+<@\textcolor{blue}{rule}@> AS_0:
+    [ 
+        Fr(~id)
+        , !Ltk($AS, ltkAS)
+    ]
+    --[ CreateAS($AS, ~id) ]->
+    [ 
+        S_AS_0($AS, ~id, ltkAS) 
+    ]
+
+<@\textcolor{blue}{rule}@> AS_1:
+    [   
+        S_AS_0(AS, id, ltkAS)
+        , In(<'<@\textcolor{red}{Broadcast}@>', GSC>)
+    ]
+    --[ Attaching(AS, GSC, id) ]->
+    [
+        Out(<'<@\textcolor{red}{CellEntryRequest}@>', AS>)
+        , S_AS_1(AS, GSC, id, ltkAS)
+    ]
+
+<@\textcolor{blue}{rule}@> AS_2:
+    <@\textcolor{darkgreen}{let}@> tas = '<@\textcolor{red}{g}@>'^~y
+        PMS = tgsc^~y
+    <@\textcolor{darkgreen}{in}@> 
+    [   
+        S_AS_1(AS, GSC, id, ltkAS)
+        , In(<'<@\textcolor{red}{ServerHelloKeyExchange}@>', GSC, tgsc>)
+        , Fr(~y)
+    ]
+    --[ Running(AS, GSC, id, tas) ]-> 
+    [ 
+        Out(<'<@\textcolor{red}{ClientHelloKeyExchange}@>', tas, 
+            sign{tas, tgsc, AS, GSC}ltkAS>)
+        , S_AS_2(AS, id, ltkAS, tas, tgsc, ~y, GSC) 
+    ]
+
+<@\textcolor{blue}{rule}@> AS_3:
+    <@\textcolor{darkgreen}{let}@> PMS = tgsc^y
+    <@\textcolor{darkgreen}{in}@> 
+    [   S_AS_2(AS, id, ltkAS, tas, tgsc, y, GSC)  
+        , In(<'<@\textcolor{red}{ServerKeyExchangeFinished}@>', ngsc, 
+            sign{ngsc, tgsc, tas, GSC, AS}ltkGSC>)        
+        , !Pk(GSC, pk(ltkGSC))
+    ]
+    --[ 
+        Commit(AS, GSC, id, <tas, tgsc>)
+        , Knows(AS, id, PMS, GSC)
+        , Secret(PMS), Honest(AS), Honest(GSC) 
+    ]->
+    [ Out(<'<@\textcolor{red}{ClientKeyExchangeFinished}@>', senc{ngsc}PMS>) ]
+\end{lstlisting}
+
+\subsection{Lemmata}
+The implementations of the Lemmata of Section \ref{subsec:lemmata}.
+
+\vspace{0.5em}
+
+\textbf{Lemma 1: "Executable":} To prove the correctness of the model, we demonstrate that a trace exists in which both parties have shared a key with each other and committed to the shared key of each other. 
+
+\begin{lstlisting}
+<@\textcolor{blue}{lemma}@> executable:
+    <@\textcolor{darkgreen}{exists-trace}@> 
+    "<@\textcolor{blue}{Ex}@> A B ib ic x y #i #j #k #l #m #n #o. 
+        CreateAS(A, ic)@i & CreateGSC(B, ib)@j 
+            & Attaching(A, B, ic)@k
+            & Running(A, B, ic, x)@l 
+            & Running(B, A, ib, y)@m 
+            & Commit(B, A, ib, <y, x>)@n 
+            & Commit(A, B, ic, <x, y>)@o"
+\end{lstlisting}
+
+
+\textbf{Lemma 2: "Secure Key Exchange":} Here we model the property, if A finishes a run with B, it can be sure, that it has a fresh key P and that B also has this key for use with A (mutual understanding), and this key has not been exchanged before implicating that also no other agent knows it. The only exclusion is when the private key of an honest agent has been corrupted before.
+
+\begin{lstlisting}
+<@\textcolor{blue}{lemma}@> secure_key_exchange:
+    "<@\textcolor{blue}{All}@> A B ia x #i. Commit(A, B, ia, x)@i ==> 
+            ( <@\textcolor{blue}{Ex}@> P ib #j #m. Knows(A, ia, P, B)@m 
+              & Knows(B, ib, P, A)@j
+              & <@\textcolor{blue}{not}@> (<@\textcolor{blue}{Ex}@> D E id #k. 
+                Knows(D, id, P, E)@k 
+                & <@\textcolor{blue}{not}@>(#m=#k) & <@\textcolor{blue}{not}@>(#j=#k))
+            )
+            | (<@\textcolor{blue}{Ex}@> C #r. Reveal(C)@r 
+            & Honest(C)@i & #r<#i)" 
+\end{lstlisting}
+
+
+\textbf{Lemma 3: "Perfect Forward Secrecy":} Here we model the property that the exchanged session key (MS) can not be known by the attacker, even when he acquires the private key of one or both parties later on.
+\begin{lstlisting}
+<@\textcolor{blue}{lemma}@> secrecy:
+    "<@\textcolor{blue}{All}@> x #i. 
+        Secret(x)@i ==> 
+            <@\textcolor{blue}{not}@> (<@\textcolor{blue}{Ex}@> #j. K(x)@j)
+            | (<@\textcolor{blue}{Ex}@> B #r. Reveal(B)@r 
+            & Honest(B)@i & #r<#i)"
+
+\end{lstlisting}
+
+
+\textbf{Lemma 4: "Mutual Authentication via Injective Agreement":} Here we model the property that if A finishes a run with B by exchanging y, it can be sure, B also ran the protocol with A and y has not been exchanged before in any other run. The only exclusion is when the private key of an honest agent has been compromised before.
+
+\begin{lstlisting}
+<@\textcolor{blue}{lemma}@> authentication:
+    "<@\textcolor{blue}{All}@> A B x y ia #i. Commit(A, B, ia, <x, y>)@i ==> 
+            ( <@\textcolor{blue}{Ex}@> ib #j. Running(B, A, ib, y)@j
+              & j<i
+              & <@\textcolor{blue}{not}@> (<@\textcolor{blue}{Ex}@> A2 B2 ia2 #i2. 
+                Commit(A2, B2, ia2, <x, y>)@i2 
+                & <@\textcolor{blue}{not}@>(#i2=#i)))
+            | (<@\textcolor{blue}{Ex}@> C #r. Reveal(C)@r & Honest(C)@i & #r<#i)"
+
+\end{lstlisting}
+
+

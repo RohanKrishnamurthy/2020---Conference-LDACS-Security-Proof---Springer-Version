@@ -1,0 +1,57 @@
+\begin{figure}[p]
+   \resizebox{1\textwidth}{!}{%
+		\procedure{}{%
+			\textbf{Ground Station Controller (GSC)} \< \< \textbf{Ground Station (GS)} \< \< \textbf{Aircraft Station (AS)} \\[][\hline]
+			Step \; \pcln \< \< \sendmessageright{top={SystemIdentificationBroadcast in BCCH}, bottom={$|SIB|ID_{GSC}|$}} \< \< \\
+			\< \< \< \< \text{Store claimed $ID_{GSC}$ of GSC}\\
+			\< \< \< \< \sendmessageleft{top={CellEntryRequest in RACH}, bottom={$|CELL\_RQST|ID_{AS}|$}}\\
+			\text{Store claimed $ID_{AS}$ of AS} \< \< \sendmessageleft{top={ASIDInfo}, bottom={$|ID_{AS}|$}}\\
+			\< \< \sendmessageright{top={CellEntryResponse in CCCH}, bottom={$|CELL\_RESP|$}} \< \< \pclb
+        	\pcintertext[dotted]{DCH open for authentication}
+        	\dbox{\begin{subprocedure}\procedure{}{%
+        	\text{Start STS}\\
+			\text{Choose secret $x$}\\
+			\text{Calculate $t_{GSC} = g^x$ $mod$ $p$}
+			} \end{subprocedure}} \\
+			Step \; \pcln \sendmessageright{top={ServerHelloKeyExchange}, bottom={$|t_{GSC}|$}} \< \< \< \< \\
+			\< \< \sendmessageright{top={Forward}, bottom={ServerHelloKeyExchange}} \< \< \\
+			\< \< \< \< \dbox{\begin{subprocedure}\procedure{}{%
+			\text{Choose secret $y$}\\
+			\text{Calculate $t_{AS} = g^y$ $mod$ $p$}\\
+			\text{Calculate $PMS_{AS-GSC}$ with $y$ and $t_{GSC} = g^x$} \\
+			\text{$PMS_{AS-GSC} = (g^x)^y$ $mod$ $p$} \\
+			\text{Generate $MS_{AS-GSC} = KDF(PMS_{AS-GSC})$}\\
+			\text{Build $Sig_{AS}(t_{AS}, t_{GSC}, ID_{AS}, ID_{GSC})$}
+			} \end{subprocedure}} \\
+            Step \; \pcln \< \< \< \< \sendmessageleft{top={ClientHelloKeyExchange}, bottom={$|t_{AS}|Sig_{AS}(t_{AS}, t_{GSC}, ID_{AS}, ID_{GSC})|$}} \\
+			\< \< \sendmessageleft{top={Forward}, bottom={ClientHelloKeyExchange}} \< \< \\
+			\dbox{\begin{subprocedure}\procedure{}{%
+			\text{Verify $Sig_{AS}(t_{AS}, t_{GSC}, ID_{AS}, ID_{GSC})$}
+			} \end{subprocedure}} \pclb
+        	\pcintertext[dotted]{AS authenticated to GSC}
+			\dbox{\begin{subprocedure}\procedure{}{%
+			\text{If correct: Finish STS} \\
+			\text{Calculate $PMS_{AS-GSC}$ with $x$ and $t_{AS} = g^y$} \\
+			\text{$PMS_{AS-GSC} = (g^y)^x$ $mod$ $p$} \\
+			\text{Generate $MS_{AS-GSC} = KDF(PMS_{AS-GSC})$, $N_{GSC}$}\\
+			\text{Build $N_{GSC}, Sig_{GSC}(N_{GSC}, t_{GSC}, t_{AS}, ID_{GSC}, ID_{AS})$}
+			} \end{subprocedure}} \\
+			Step \; \pcln \sendmessageright{top={ServerKeyExchangeFinished}, bottom={$N_{GSC}, Sig_{GSC}(N_{GSC}, t_{GSC}, t_{AS}, ID_{GSC}, ID_{AS})$}} \< \< \< \< \\
+			\< \< \sendmessageright{top={Forward}, bottom={ServerKeyExchangeFinished}} \< \< \\
+			\< \< \< \< \dbox{\begin{subprocedure}\procedure{}{%
+			\text{Verify $Sig_{GSC}(N_{GSC}, t_{GSC}, t_{AS}, ID_{GSC}, ID_{AS})$}
+			} \end{subprocedure}} \pclb
+        	\pcintertext[dotted]{GSC authenticated to AS $\rightarrow$  AS and GSC mutually authenticated and sharing a master secret $MS_{AS-GSC}$}
+        	Step \; \pcln \< \< \< \<  \sendmessageleft{top={ClientKeyExchangeFinished}, bottom={$ENC_{MS_{AS-GSC}}(N_{GSC})$}} \\
+        	\< \< \sendmessageleft{top={Forward}, bottom={ClientKeyExchangeFinished}} \< \< \\
+        	\dbox{\begin{subprocedure}\procedure{}{%
+        	\text{$DEC_{MS_{AS-GSC}}(N_{GSC})$} \\
+        	\text{Verify $N_{GSC}$}
+        	} \end{subprocedure}}
+    		}
+    }
+    \vspace{1em}
+    \caption{LDACS \ac{MAKE} Protocol. The protocol uses the \acl{BCCH} (\acs{BCCH}), \acl{RACH} (\acs{RACH}), \acl{CCCH} (\acs{CCCH}), and \acl{DCH}  (\acs{DCH}) logical channels defined in \cite{graeupl2019}.}
+    \label{fig:figure3}
+\end{figure}
+

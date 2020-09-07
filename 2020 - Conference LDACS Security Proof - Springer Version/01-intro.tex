@@ -1,0 +1,25 @@
+\section{Introduction}
+\label{Introduction}
+
+%Civil air traffic is growing fast \cite{EUROCONTROL2018} and despite the COVID-19 pandemic, which has temporarily reduced the world air traffic passenger numbers at some points by 35\% compared to the pre-COVID-19 level, the \ac{ICAO} anticipates air traffic passenger numbers to grow from 2022 onward again \cite{icao2020}. In the long term, the \ac{IATA} estimates air traffic passenger numbers to double to 8.2 billion in 2037 compared to 4 billion in 2018 \cite{iata2018}.
+%However, most aeronautical communication systems in operation today suffer already from capacity issues  \cite{icao2019}.
+
+One of the main pillars of the modern \ac{ATM} system is the existence of a communication infrastructure that enables efficient aircraft control and safe separation in all phases of flight. Current communication systems are technically mature but suffering from the \ac{VHF} band's increasing saturation in high-density areas and the limitations posed by analogue radio communications \cite{maeurer-raw-ldacs-05}.
+
+The rise of new entrants such as drones, \acp{UAV}, single piloted or autonomous aircraft \cite{hall2020} and ultimately the lack of spectrum, require therefore a paradigm shift in aeronautical communications. 
+
+In order to overcome the capacity constraints of the legacy analogue systems, digitalization of aeronautical communications is necessary \cite{mahmoud2014} and currently underway \cite{icao2019}. To allow this process to occur smoothly, confidentiality, integrity and availability of data are key. Safety and security are strongly interrelated in aviation \cite{mahmoud2014, standar2018}.  Cybersecurity becomes thus a key enabler for the remodeling of civil aviation \cite{maeurer20182, hall2020}.
+
+Unfortunately, cybersecurity for \ac{CNS} systems is not realized in most deployed aeronautical systems today \cite{costin2012, niraula2018, yang2018}. To facilitate change and support the digitalization process, there are several initiatives e.g.\ the \ac{SESAR}\footnote{\url{https://www.sesarju.eu/}, last access June 20, 2020} program in the EU, and NextGEN\footnote{\url{https://www.faa.gov/nextgen/}, last access June 20, 2020} in the US. These initiatives envision a \ac{FCI} utilizing multiple secure digital aeronautical data links. Candidate data link technologies for the \ac{FCI} are the \ac{LDACS} for long-range terrestrial aeronautical communications \cite{schnell2019}, Iris satellite communications for oceanic, polar and remote areas, and the \ac{AeroMACS} for airport communications. Of these candidate technologies \ac{AeroMACS} has the most mature cybersecurity architecture. Originating from \ac{WiMAX} with a dedicated security layer \cite{giraudon2014} and a \ac{PKI} in place \cite{crowe2017}, \ac{AeroMACS} may serve as the blueprint for other systems. As \ac{LDACS} is next in line with \ac{SESAR}'s \ac{FCI} strategy, the development of a strong cybersecurity architecture for \ac{LDACS} is paramount.
+
+A cybersecurity architecture for \ac{LDACS} has been proposed in \cite{maeurer20181, maeurer20182, maeurer20191, maeurer20192}. However, a formal prove of the security of the \ac{MAKE} procedure that is fundamental to the security of the overall system has not been published yet.
+
+\vspace{0.5em}
+The objective of this paper is thus to provide a formal analysis of the proposed mutual authentication and key agreement protocols of LDACS and to prove their security.
+
+\vspace{0.5em}
+In section \ref{Background} we introduce the \acl{LDACS} (\acs{LDACS}).
+In section \ref{Method_modelchecking} we introduce our method for symbolic modeling and analysis of security protocols.
+In section \ref{Method_ldacs} we discuss the \ac{LDACS} \ac{MAKE} protocol and its security objectives. We derive the lemmata to be proved by our method and state our assumptions.
+In section \ref{Results}, we present the results from the formal security proof and discuss them in section \ref{Discussion}.
+Finally, we conclude with key findings, recommendations and future work in section \ref{Conclusion}.

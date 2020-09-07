@@ -1,0 +1,31 @@
+\section{Discussion}
+\label{Discussion}
+Our results show that the LDACS MAKE protocol  -- which is a modified \ac{STS} protocol -- is secure in fulfilling (1) mutual authentication of communication parties, (2) secure key agreement among communication parties and (3) perfect forward secrecy for subsequent key material. 
+
+\subsection{Limitations of the Proof}
+However, our proof is valid only under the assumptions of Section \ref{sec:SecurityAssumption}. For real-world applications, these assumptions do not necessarily hold in general. Apart from the limitations of the assumptions themselves, there are limitations originating from the method of symbolic model checking, too. 
+
+\textbf{Limitations of Symbolic Modeling and Analysis:}
+\label{sec:LimitattionsofSymbolicModelChecking}
+As indicated in Section \ref{sec:SecurityAssumption} there is no guarantee for computational soundness of the protocol since we can not make assertions about the used cryptographic algorithms. For example, the used Diffie-Hellman exponentiation is generally accepted as "secure" due to the difficulty of factoring big numbers. In the symbolic model, we can not verify or falsify this so-called "Diffie-Hellman-assumption" - we assume it is right. The same holds true for the other used cryptographic primitives as signatures or encryption schemes. These (e.g. AES, RSA) are not specified in our model, but modeled as symbolic functions transforming data in an unspecified way.
+Also, because of the symbolic level we are operating, we can not make any assertions regarding possible vulnerabilities of an actual software implementation of the protocol, e.g. because of buffer overflows. These kinds of flaws are out of scope of this work. Also, side-channel attacks because of e.g. timing issues can not be found in this way, since they are also implementation-specific.
+
+\textbf{Implications of Assumptions:}
+In Section \ref{sec:SecurityAssumption} we mentioned several assumptions, which don't necessarily hold true in real-world implementations. Many of the mentioned assumptions rely on the secure setup and operation of the underlying LDACS PKI. For instance, the assumed impossibility of unauthorized key registration with a spoofed ID, the privacy of private signing keys, storage limits and an autonomous registration of station public keys are all dependent on the way the PKI is set up and how keys are transported. In addition we assumed that  the \ac{LDACS} \ac{PKI} would be similar to the \ac{AeroMACS} PKI \cite{crowe2017}. As this is a requirement for the proposed LDACS MAKE procedure to work as intended, due to the corroboration of identity and public keys and trust established within the chain-of-trust model that the PKI uses, it is reasonable to assume such a PKI to be built for LDACS. However, already the second assumption, that of a trustworthy \ac{CA} proves difficult, as there are many examples, where intermediate sub-CAs were compromised in the past \cite{roosa2013}. As there is no such incident reported for the AeroMACS PKI as of yet and with \ac{ICAO}'s efforts to establish their own aviation PKI \cite{patel2016}, the underlying PKI infrastructure will likely become more robust in the future. The unique bind of an ID and public signing key can be broken in principle \cite{cohn2016}, thus there are additional measures necessary to enforce this assumption, such as regular system and chain-of-trust integrity checks, secure logging procedures and more. Finally, the overall implementation of security functions such as signature mechanisms or encryption algorithms is not guaranteed to be correct and work as intended \cite{aumasson2017}.
+
+\subsection{Recommendations for LDACS the MAKE Protocol}
+We derived several recommendations for the further improvement of the \ac{LDACS} \ac{MAKE} protocol from our results.
+
+\vspace{0.5em}
+\textbf{Denial of service attacks}:
+There are several strategies to further protect against attacks. A possible strategy are authenticated ranges, so that the LDACS AS and GS radio measure the properties of the radio channel and estimate the origin of the signal source. Thus with all GS positions known to all AS, rogue GS can be easier detected by AS. 
+
+Another way to rule out attacks is to use the frequency plan, including all frequencies for \ac{FL} and \ac{RL} and the respective expected \ac{EIRP} to allocate all information together: Frequencies, IDs, EIRPs at certain times, key material and so forth. With this additional information attacking the radio link becomes increasingly difficult.
+
+Another idea to strengthen the \ac{LDACS} link against \ac{DoS} attacks is to include server cookies in the \ac{SIB} that are to be returned by honest ASs. As there are three \ac{BC} slots in the \ac{BCCH} channel of LDACS, up to 1000 Bits of additional information can still be fit into these slots.
+
+
+\vspace{0.5em}
+\textbf{Age of security material}: One possibility to shorten the lifetime of overall used cryptographic material on the moving nodes, thus the aircraft, is to hand out smartcards alongside the flight plan with pre-stored cryptographic material for every flight. Thus the LDACS radio itself does not possess any cryptographic keys but they are applied for each flight only and revoked after the flight has been successfully completed.
+
+One way to approach this is the use of \ac{IBS} \cite{paterson2006}, where keys can be revoked mathematically after a certain timeframe and the public keys are bound by default to a respective entity. 

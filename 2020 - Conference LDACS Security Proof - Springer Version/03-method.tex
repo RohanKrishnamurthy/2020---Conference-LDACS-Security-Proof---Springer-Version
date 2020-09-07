@@ -1,0 +1,131 @@
+\section{Symbolic Modeling and Analysis of Security Protocols}
+\label{Method_modelchecking}
+
+%\subsection{Model Checking}
+
+In order to prove the security of the authentication and key exchange protocols of \ac{LDACS} we use software based model checking tools.
+
+Model checking is a formal technique for systems verification developed since the 1980's \cite{clarke1983} and has been successfully used e.g. for checking the correctness of hardware designs of microchips \cite{cimatti1999} but also for checking concurrent (software) systems and communication protocols \cite{holzmann1991}.
+
+The main idea is to specify the target system as a state-transition graph (or Kripke structure) which can be analyzed easier than a full implementation in e.g. \ac{VHDL} or C-code and to verify that a given specification or property of this system holds within its complete state-space. These properties are often safety-properties like deadlock freedom, or liveliness-properties like termination- or response-guarantees and are usually formalized with a temporal-logic formula (\ac{LTL}/\ac{CTL}).
+
+If successful, the model checker can show, that a certain state of the model (e.g. a "Crash") cannot be reached, or, that a state (e.g. "Stop") will be reached if certain conditions are met. Otherwise, the model checker outputs a counterexample that witnesses the violation of the specification by the behavior of the modeled system \cite{clarke2018}.
+
+To be able to prove security properties of e.g. communication protocols, one has to additionally model the attacker, since he or she (possibly) plays an active part in each run of the protocol. Following the works of Dolev and Yao \cite{dolev1981}, the ideal, most powerful attacker is assumed, who can create, intercept or modify any message in the network, spoof any identity and even compromise long term keys. Often, this is implemented by sending every message to the attacker first, who then blocks or relays them unmodified to the honest agents at will.
+
+In general, this can be done manually using a general-purpose model checker like SPIN \cite{maggi2002}, but more specialized cryptographic protocol checkers have the advantage of a built-in algebraic attacker model and predefined security properties like secrecy and agreement \cite{basin2015}.
+
+\subsection{Choice of Model Checker}
+
+Shinde et al \cite{shinde2017} provides an overview of tools for the specification and verification of cryptographic protocols.
+
+We evaluated three of the most recent and actively developed tools of this list, namely: Scyther \cite{cremers2008}, ProVerif \cite{blanchet2001} and Tamarin \cite{schmidt2012}. The first and the last are (co-)developed by Cas Cremers, who also gives a comparison of the features of his tools in \cite{cispa2020}. First, we tried Scyther which has good tool support and a concise syntax. Unfortunately, we could not model the MAKE protocol with it, since our authentication scheme uses exponentiation, which is not natively supported by Scyther. After this, we tried ProVerif which has support for this and achieved good results. But we had difficulties in proving the correctness of the protocol without having an active attacker. Finally, we chose Tamarin which is very similar to ProVerif in terms of features and capabilities but has the advantage of more flexibility in the protocol description due to its more general syntax which allows loops to occur and the possibility to prove arbitrary properties of the protocol. Tamarin provides two different ways of constructing proofs: a fully automated mode that guides proof search and an interactive mode. The termination of the automated process returns either a proof of correctness or an attack scenario. The interactive mode enables the user to inspect the attack graphs, proof states and combine the manual proof guidance with the automated search. From a user's perspective, Tamarin model checker allows for the direct specification of the security properties to be proven. The flexible modeling framework and expressive language property makes Tamarin fit for analyzing a wide range of security properties. Tamarin model checker has shown strong results in related works to analyze many authenticated key exchange protocols \cite{schmidt2012}. In \cite{meier2013} Simon presented the symbolic analysis of security protocols using Tamarin prover. The Attack Resilient-Public Key Infrastructure (AR-PKI) protocol is presented and verified using Tamarin prover in \cite{kim2018} and the automated verification of Group Key Agreement protocols was presented in \cite{basin2014} using the Tamarin prover as well.  
+\vspace{0.5em}
+
+We chose to use Tamarin for this work. We see the advantage of the Tamarin model checking approach in its application in parallel to the protocol design, since changes in the protocol can easily be transferred to the model and vice versa. It delivers reproducible security proofs while maintaining flexibility towards further improvements. It can be used akin to a "unit test" in software development. Each change in the protocol can be applied to the model and automatically tested for defined security goals.
+
+\subsection{Method}
+
+Tamarin models are written in a domain-specific multiset rewriting formalism which defines a labeled transition system. The systems initial state is an empty multiset of facts, which gets filled by the creation of facts during the transitions of the system. All possible transitions of the system are defined by  \textit{rules}. Each rule has a left-hand side giving a sequence of required \textit{facts} to describe the preconditions of the transition to execute. Also, each rule has a right-hand side, given as a sequence of the new facts created after the transition has been executed. Between those two, one or more \textit{action facts} or \textit{transition labels} can be defined. Each protocol run will then generate a trace consisting of this action facts. To reason about the behavior of the protocol, the behavior can be formalized as a trace property, which is a set of traces using first-order logic formulas over action facts and timepoints. These trace properties are called 'lemmata' and can be proven.
+
+While modeling the LDACS MAKE protocol with Tamarin, we tried to follow the standards and recommendations from the Tamarin documentation as much as possible \cite{tamarinDoc2020}. As there is no built-in \textit{role} type in Tamarin, but only rules and facts, roles must be carefully modeled using \textit{state} facts which link multiple rules together by carrying the state of a role from rule to rule.  This way we modeled the roles of the \ac{AS} and the \ac{GSC}. As recommended in the documentation, each role has an initial \textit{creation} rule which also assigns a unique session-ID to distinguish multiple instances of the roles. The other rules for AS and GSC directly reflect their message exchange over an untrusted network as pictured above, by using the Tamarin built-in facts  \textit{In()} and \textit{Out()}. The rule for the public key infrastructure basically allows anyone to register its public key in a public database so that anyone can verify e.g. a given signature and an ID from an incoming signed message. To make the verification task easier we added the restriction, that each actor can register only one key-pair per ID. To later check the protocol for perfect forward secrecy, we also added a rule for modeling the compromise of private keys to the attacker. 
+
+\section{Mutual Authentication and Key Exchange in LDACS}
+\label{Method_ldacs}
+
+%\subsection{LDACS Cell Entry Procedure}
+\label{ldacscellentry}
+
+Mutual authentication and key exchange (MAKE) in LDACS are deeply linked to the cell entry procedure.
+The \ac{LDACS} specification \cite{graeupl2019} provides a detailed overview on the \ac{LDACS} cell entry procedure. Once a \ac{GS} is securely connected to the aeronautical ground network via the \ac{GSC}, it starts sending a broadcast message, the \ac{SIB} message, containing relevant information such as network identification, physical parameters such as channel frequencies and more. When an \ac{AS} enters the cell served by a \ac{GS}, it receives the \ac{SIB} and sends a CELL\_RQST message in reply. The CELL\_RQST message contains a "unique address identifying the \ac{LDACS} radio" \cite{graeupl2019}. When the \ac{GS} receives the CELL\_RQST message, a CELL\_RESP message is sent back to the \ac{AS}, informing the \ac{AS} about its \ac{SAC}. The \ac{SAC} is a local and temporary address for the \ac{AS} in the cell. After this exchange of control channel messages, both communication parties are informed about \ac{LDACS} specific addresses, timing, frequency, and power values and can start the user data communication. This is illustrated in step 1 of figure \ref{fig:figure3}.
+
+
+\subsection{Related Work}
+Until now, no security information has been exchanged, however, previous threat and risk analyses \cite{zelkin2011, maeurer20181, maeurer20191} for LDACS have identified several safety-critical applications, that require security. In particular, applications supporting air traffic services and safety-related aeronautical operational control communications are of concern \cite{maeurer20182, maeurer20192}. 
+
+Bilzhause et. al identified five objectives to secure LDACS \cite{bilzhause2017}. These five objectives were later extended to nine objectives in the \ac{LDACS} \ac{SARPS} endorsed by \ac{ICAO} \cite{icao2018}, namely (1) to protect availability and continuity of service, to protect (2) integrity, (3) authenticity for user and control plane messages in transit, (4) provide non-repudiation of origin, (5) confidentiality for user plane messages in transit, (6) mutual entity authentication, (7) authorize explicitly permitted actions of users or entities, (8) prevent the propagation of intrusions within LDACS domains and towards external domains and (9) protect against service attacks to a level consistent with the application service requirements.
+
+Based on these objectives and results from threat and risk analysis, a first cybersecurity architectural draft was presented in \cite{maeurer20182}. Security protocols and algorithms were proposed and evaluated in \cite{maeurer20191} and a performance analysis of the \ac{LDACS} \ac{MAKE} protocol was published in \cite{maeurer20192}. The paper \cite{maeurer2020} investigated the optimal choice of Diffie-Hellman key exchange procedures and improved the previously presented \ac{MAKE} procedure. The contribution of this paper is the formal proof of the security of this protocol.
+
+\subsection{Security Objectives}
+The objective of the LDACS MAKE protocol is to establish a shared session key $K$ between any two parties AS and GSC, in which they can have ``mutual belief'', following the definition of Boyd \cite{boyd2020}: ``Mutual belief in the key $K$ is provided for B only if $K$ is a good key for use with A, an A wishes to communicate wit B using key $K$ which A believes is good for that purpose.'' Following the hierarchy of authentication and key establishment goals of Boyd, this mutual belief goal can be split up into the sub-goals \textit{entity authentication}, \textit{key confirmation} and \textit{good key}. Additionally, we want to address the issue of compromised long-term keys. We summarize the objectives of the \ac{LDACS} \ac{MAKE} protocol therefore as such:
+
+\vspace{0.5em}
+\textbf{Mutual Authentication:} Both parties can be sure of the identity of the other and that both actually participated in this interaction. 
+
+\vspace{0.5em}
+\textbf{Secure Key Agreement:} Both parties have established a shared session key, which means both parties know this key and know that they can use it for a secure communication with the other party for the duration of this session. The key must have never been used before in a session and only the two parties can know it.
+
+\vspace{0.5em}
+\textbf{Perfect Forward Secrecy:} The established session key remains secret, even when the private signing keys of the involved parties have been compromised after this session.
+
+\subsection{LDACS MAKE Protocol}
+\label{subsec:LDACSMAKE}
+The \ac{LDACS} \ac{MAKE} protocol is illustrated in figure \ref{fig:figure3}. It has five steps:
+
+\input {figures/fig_ldacs_auth}
+\vspace{0.5em}
+
+\vspace{0.5em}
+\textbf{Step 1 -- Cell Entry Procedure:} First the \ac{AS} connects to the \ac{LDACS} network via the cell entry procedure described in section \ref{ldacscellentry}. During this procedure the \ac{AS} is told a claimed identity of the network $ID_{GSC}$ and the network is told a claimed identity of the \ac{AS}, $ID_{AS}.$ Once that procedure is done, the \ac{GSC} chooses a secret $x$ and calculates its public key $t_{GSC} = g^x$.
+
+\vspace{0.5em}
+\textbf{Step 2 -- Server Hello Key Exchange:}  The \ac{GSC} sends the 
+\\$ServerHelloKeyExchange$ message to the \ac{AS}. The \ac{AS} chooses a secret $y$ and calculates its public key $t_{AS}$. It then calculates the \ac{PMS} $\mathit{PMS}_{AS-GSC} = (g^x)^y$ $\mod$ $p$ and the \ac{MS} $\mathit{MS}_{AS-GSC}=\mathit{KDF}(PMS_{AS-GSC})$ via a predefined \ac{KDF} and creates its own signature $Sig_{AS}(t_{AS}, t_{GSC}, \mathit{ID}_{AS}, \mathit{ID}_{GSC})$.
+
+\vspace{0.5em}
+\textbf{Step 3 -- Client Hello Key Exchange:} The \ac{AS} sends now its public key $t_{AS}$ and its signature to the \ac{GSC} in the $ClientHelloKeyExchange$ message. The \ac{GSC} verifies the AS signature $Sig_{AS}(t_{AS}, t_{GSC}, \mathit{ID}_{AS}, \mathit{ID}_{GSC})$. If that verification passes, at this point the \ac{AS} is authenticated to the \ac{GSC}. The \ac{GSC} proceeds to generate  $\mathit{PMS}_{AS-GSC} = (g^y)^y$ $\mod$ $p$ and $MS_{AS-GSC} = \mathit{KDF}(\mathit{PMS}_{AS-GSC})$  via a predefined \ac{KDF} and builds another signature tag $Sig_{GSC}(t_{GSC}, t_{AS}, \mathit{ID}_{GSC}, \mathit{ID}_{AS})$.
+
+\vspace{0.5em}
+\textbf{Step 4 -- Server Key Exchange Finished:} The \ac{GSC} sends its nonce $N_{GSC}$ and signature $Sig_{GSC}(N_{GSC}, t_{GSC}, t_{AS}, \mathit{ID}_{GSC}, \mathit{ID}_{AS})$ in the 
+\\$ServerKeyExchangeFinished$ message to the \ac{AS}. There the \ac{AS} verifies the \ac{GSC} signature $Sig_{GSC}(N_{GSC}, t_{GSC}, t_{AS}, \mathit{ID}_{GSC}, \mathit{ID}_{AS})$. If that verification \\ passes, at this point the \ac{GSC} is authenticated to the \ac{AS}
+
+\vspace{0.5em}
+\textbf{Step 5 -- Client Key Exchange Finished:} To attain key confirmation, the AS encrypts the nonce $N_{GSC}$, $\mathit{ENC}_{MS_{AS-GSC}}(N_{GSC})$ and sends that in the $ClientKeyExchangeFinished$ message to the \ac{GSC}. At the \ac{GSC}, the $N_{GSC}$ nonce is decrypted and verified. If that verification step is successful, key confirmation of the key $\mathit{MS}_{AS-GSC}$ is achieved.
+
+\subsection{Simplifications and Assumptions}
+\label{sec:SecurityAssumption}
+
+It is foreseen that prior to any flight, AS, GS, GSC have entity-specific certificates and have agreed on common values for a Diffie-Hellman Key Exchange variation (e.g. \ac{DHKE}, \ac{ECDH}, \ac{SIDH}).
+For simplification we therefore assume:
+    (1) AS and GSC generate a fresh public key for each protocol run (i.e. $t_{AS}$, $t_{GSC}$ can also serve as a nonce placeholder)
+	(2) AS, GS and GSC have unique identifiers
+    (3) AS, GS and GSC have a signed certificate (handled by an LDACS \ac{PKI}) proving their identity claim
+    (4) AS, GS and GSC have all necessary public keys of respective communication entities to verify signatures and identity claims
+    (5) AS, GS, GSC have agreed on necessary Diffie-Hellman parameters (e.g. $p, g$)
+    (6) GS and GSC have established a secured communication channel prior to the \ac{LDACS} \ac{MAKE} procedure.
+
+For our model checking process, we had to make some further assumptions about the building blocks in the LDACS MAKE procedure:
+
+We assume (1) a given \ac{PKI} with a (2) trustworthy CA, which (3) binds uniquely identifiable station-IDs to public signing keys (e.g. certificates like X.509) of all possible parties (\ac{AS} and \ac{GSC}). In our model, (4) stations can register their public keys autonomously, but we (5) limit the storage to one key per station-ID. Further, we assume (6) that an unauthorized key registration with a spoofed station-ID is not possible. We assume, (7) that the private signing keys are only known to their respective stations and are initially not known to the adversary. To verify the claimed forward secrecy, we model a key corruption after the protocol run.
+As we employ symbolic model checking, the modeled cryptosystems are treated as black boxes meaning that (8) signature and (9) encryption mechanisms are assumed secure as long as the appropriate keys are unknown to the adversary. Therefore, it is assumed, (10) that the adversary can not learn anything from messages he cannot decrypt. Also, (11) a guaranteed freshness is assumed for all generated values like session IDs or nonces.
+We do not model any physical properties of the communication - e.g. timing-issues of the message exchange - and therefore (12) we can not capture so called side channel attacks. 
+A feature of Tamarin is (13) the unbound number of stations and therefore parallel or interleaved protocol runs by default, which allows to identify the most complex attacks on the protocol. This may not be possible in the real world due to limited resources like computing power and bandwidth restrictions.
+
+\subsection{Tamarin Lemmata}
+\label{subsec:lemmata}
+Overall there are several properties that we want to prove for the LDACS MAKE procedure: (1) the protocol must be executable and correct, thus both parties have authenticated and confirmed the exchanged key of each other, (2) the protocol must ensure mutual entity authentication, where we define "authentication" via the "injective agreement" from \cite{lowe1997}, (3) the protocol must result in a shared session key, where we use the definition of a "good session key" for one party from \cite{syverson1994, boyd2020}, (4) the protocol must ensure perfect forward secrecy, where we use the definition from \cite{boyd2020}.
+These properties allow us to realize all other LDACS security objectives from \cite{icao2018}. 
+\vspace{0.5em}
+In the property specification-part, we first formulated a lemma for sanity checking of our model. We wanted to verify that the protocol can execute from the creation of the stations until the successful key-exchange:
+
+\textbf{Lemma 1: "Executable"}:
+There exists a trace where A in role AS gets created and B in role GSC gets created, A is requesting B for cell entry, both are starting the protocol by exchanging $t_{AS}$ and $t_{GSC}$, and finally both commit by having the shared session key.
+\vspace{0.5em}
+
+To prove that a secure key exchange is possible, meaning that both parties have a secret shared key after a protocol run, we added another lemma to prove that:
+
+\textbf{Lemma 2: "Secure Key Exchange"}:
+If A finishes a run with B, it can be sure, that it has a fresh key P and that B also has this key for use with A (mutual understanding), and this key has not been exchanged before implicating that also no other agent knows it. The only exclusion is when the private key of an honest agent has been corrupted before.
+\vspace{0.5em}
+
+Then we have a lemma to prove the perfect forward secrecy of the exchanged session key and hence all secrets which will be encrypted with it. We used the recommended secrecy-lemma from the Tamarin documentation for this:
+
+\textbf{Lemma 3: "Perfect Forward Secrecy"}:
+The exchanged session key (MS) can not be known by the attacker, even when he acquires the private key of one or both parties later on.
+\vspace{0.5em}
+ 
+Finally, we have one lemma to prove the mutual authentication of both parties by an injective agreement over exchanged messages ($t_{AS}$ and $t_{GSC}$), which can be seen as the strongest definition of authentication according to Lowe\cite{lowe1997}. Again, this lemma has been formulated very close to the recommendations and examples from the Tamarin documentation \cite{tamarinDoc2020}:
+
+\textbf{Lemma 4: "Mutual Authentication via Injective Agreement"}:
+If A finishes a run with B by exchanging y, it can be sure, B also ran the protocol with A and y has not been exchanged before in any other run. The only exclusion is when the private key of an honest agent has been compromised before. 
